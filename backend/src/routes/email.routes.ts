@@ -3,6 +3,7 @@ import { authMiddleware } from '../middleware/auth';
 import { prisma } from '../db/prisma';
 import { searchEmails } from '../services/search.service';
 import { logger } from '../config/logger';
+import { Prisma } from '@prisma/client';
 
 export const emailRouter = Router();
 
@@ -21,12 +22,13 @@ emailRouter.get('/', authMiddleware, async (req: Request, res: Response, next: N
     }
 
     const userId = req.user!.id;
-    const whereCondition: any = { userId };
+    const whereCondition: Prisma.EmailWhereInput = { userId };
     if (campaignId) {
       whereCondition.campaignId = campaignId;
     }
 
-    let orderBy: any = {};
+    let orderBy: Prisma.EmailOrderByWithRelationInput | Prisma.EmailOrderByWithRelationInput[] =
+      { createdAt: 'desc' };
     if (statusParam === 'scheduled') {
       whereCondition.status = { in: ['scheduled', 'processing'] };
       orderBy = { scheduledAt: 'asc' };

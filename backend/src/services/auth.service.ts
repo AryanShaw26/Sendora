@@ -1,5 +1,5 @@
 import { OAuth2Client } from 'google-auth-library';
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import { env } from '../config/env';
 import { prisma } from '../db/prisma';
 import { logger } from '../config/logger';
@@ -11,9 +11,8 @@ export const googleOAuthClient = new OAuth2Client(
 );
 
 export function signUserToken(userId: string): string {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return jwt.sign({ sub: userId }, env.JWT_SECRET, {
-    expiresIn: env.JWT_EXPIRES_IN as any,
+    expiresIn: env.JWT_EXPIRES_IN as SignOptions['expiresIn'],
   });
 }
 

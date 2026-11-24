@@ -110,7 +110,7 @@ export async function sendTestSlackMessage(userId: string): Promise<void> {
 
   if (!integration) {
     const err = new Error('No Slack integration found for user');
-    (err as any).status = 404;
+    Object.assign(err, { status: 404, code: 'SLACK_NOT_CONNECTED' });
     throw err;
   }
 

@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #F6F8FC;
+    color: #202124;
+    font-family: 'Roboto', system-ui, sans-serif;
+  }
+
+  /* Global WCAG accessible focus ring per design.md §2.3 */
+  :focus-visible {
+    outline: 2px solid #F4A9A2 !important;
+    outline-offset: 2px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

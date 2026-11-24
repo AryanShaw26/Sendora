@@ -73,23 +73,48 @@ export async function reconcileQueue(): Promise<{ checked: number; reenqueued: n
 export async function targetedReconcileEmails(
   emailIds: string[]
 ): Promise<{ confirmed: number; missing: string[] }> {
-  let confirmed = 0;
-  const missing: string[] = [];
-
-  const jobs = await Promise.all(
-    emailIds.map(async (id) => {
-      const job = await emailQueue.getJob(id);
-      return { id, job };
-    })
-  );
-
-  for (const item of jobs) {
-    if (item.job) {
-      confirmed++;
-    } else {
-      missing.push(item.id);
-    }
+  if (emailIds.length === 0) {
+    return { confirmed: 0, missing: [] };
   }
 
-  return { confirmed, missing };
+  const emails = await prisma.email.findMany({
+    where: { id: { in: emailIds }, status: { in: ['scheduled', 'processing'] } },
+    select: { id: true, scheduledAt: true },
+  });
+
+  const jobs = await Promise.all(
+    emails.map(async (email) => ({
+      email,
+      job: await emailQueue.getJob(email.id),
+    }))
+  );
+
+  const present = jobs.filter(({ job }) => !!job);
+  const missing = jobs.filter(({ job }) => !job).map(({ email }) => email);
+
+  if (missing.length > 0) {
+    const now = Date.now();
+    await emailQueue.addBulk(
+      missing.map((email) => ({
+        name: 'send-email',
+        data: { emailId: email.id },
+        opts: {
+          jobId: email.id,
+          delay: Math.max(0, email.scheduledAt.getTime() - now),
+          attempts: 1,
+          removeOnComplete: { age: 86_400, count: 5000 },
+          removeOnFail: false,
+        },
+      }))
+    );
+  }
+
+  const missingIds = missing.map((email) => email.id);
+  const confirmations = await Promise.all(
+    missingIds.map(async (id) => !!(await emailQueue.getJob(id)))
+  );
+  const confirmedAfterRecovery = present.length + confirmations.filter(Boolean).length;
+  const remainingMissing = missingIds.filter((_id, index) => !confirmations[index]);
+
+  return { confirmed: confirmedAfterRecovery, missing: remainingMissing };
 }

@@ -186,11 +186,20 @@ export async function scheduleCampaign(
       { failedCount: failedIds.length, campaignId },
       'Some jobs failed bulk enqueue; attempting immediate targeted reconciliation'
     );
-    const { missing } = await targetedReconcileEmails(emailRows.map((e) => e.id));
-    if (missing.length > 0) {
+    try {
+      const { missing } = await targetedReconcileEmails(emailRows.map((e) => e.id));
+      if (missing.length > 0) {
+        logger.error(
+          { missingCount: missing.length, campaignId },
+          'Campaign persisted in DB but has jobs pending queue reconciliation'
+        );
+        queueStatus = 'pending_reconciliation';
+        httpStatus = 202;
+      }
+    } catch (recoveryErr) {
       logger.error(
-        { missingCount: missing.length, campaignId },
-        'Campaign persisted in DB but has jobs pending queue reconciliation'
+        { err: recoveryErr, campaignId },
+        'Immediate queue recovery failed; campaign remains persisted for boot reconciliation'
       );
       queueStatus = 'pending_reconciliation';
       httpStatus = 202;

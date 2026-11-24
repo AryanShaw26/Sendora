@@ -4,12 +4,21 @@ import { logger } from './config/logger';
 import { prisma } from './db/prisma';
 import { defaultRedis } from './redis/connection';
 import { ensureIndex } from './services/search.service';
+import { reconcileQueue } from './queue/reconcile';
 
 async function start() {
   const app = createApp();
 
   // Ensure Elasticsearch index exists on boot
   await ensureIndex();
+
+  if (env.RECOVERY_ON_BOOT) {
+    try {
+      await reconcileQueue();
+    } catch (err) {
+      logger.error({ err }, 'Boot-time queue reconciliation encountered an error');
+    }
+  }
 
   const server = app.listen(env.PORT, () => {
     logger.info(`🚀 API server running on ${env.BACKEND_URL} (Port ${env.PORT})`);

@@ -125,8 +125,7 @@ export async function searchEmails(params: {
   const limit = Math.min(100, Math.max(1, params.limit || 20));
   const from = (page - 1) * limit;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const must: any[] = [
+  const must: Record<string, unknown>[] = [
     {
       multi_match: {
         query: params.q,
@@ -136,8 +135,7 @@ export async function searchEmails(params: {
     },
   ];
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const filter: any[] = [{ term: { userId: params.userId } }];
+  const filter: Record<string, unknown>[] = [{ term: { userId: params.userId } }];
   if (params.status) {
     filter.push({ term: { status: params.status } });
   }
