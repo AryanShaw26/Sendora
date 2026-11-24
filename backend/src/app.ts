@@ -14,6 +14,10 @@ import { pingElasticsearch } from './services/search.service';
 import { scheduleRouter } from './routes/schedule.routes';
 import { authRouter } from './routes/auth.routes';
 import { userRouter } from './routes/user.routes';
+import { emailRouter } from './routes/email.routes';
+import { campaignRouter } from './routes/campaign.routes';
+import { senderRouter } from './routes/sender.routes';
+import { slackRouter } from './routes/slack.routes';
 import { authMiddleware } from './middleware/auth';
 import { emailQueue } from './queue/queue';
 
@@ -75,6 +79,10 @@ export function createApp(): express.Application {
   app.use('/auth', authRouter);
   app.use('/api', userRouter);
   app.use('/api/schedule', scheduleRouter);
+  app.use('/api/emails', emailRouter);
+  app.use('/api/campaigns', campaignRouter);
+  app.use('/api/senders', senderRouter);
+  app.use('/api/slack', slackRouter);
 
   // Bull Board Live Queue Dashboard
   const serverAdapter = new ExpressAdapter();

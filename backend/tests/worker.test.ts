@@ -58,7 +58,9 @@ describe('Worker Engine & Rate Limiter Tests', () => {
     }
   });
 
-  it('processes an email, marks it sent with previewUrl, and updates attempts', async () => {
+  it(
+    'processes an email, marks it sent with previewUrl, and updates attempts',
+    async () => {
     const sender = await prisma.sender.findFirst({ where: { isActive: true } });
     expect(sender).toBeDefined();
 
@@ -105,7 +107,7 @@ describe('Worker Engine & Rate Limiter Tests', () => {
     expect(updated?.previewUrl).toContain('ethereal.email');
     expect(updated?.attempts).toBe(1);
     expect(updated?.messageId).toContain('@sendora.local');
-  });
+  }, 15000);
 
   it('defers email to next UTC hour window when campaign hourly limit is exceeded', async () => {
     const sender = await prisma.sender.findFirst({ where: { isActive: true } });

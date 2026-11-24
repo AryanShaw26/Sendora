@@ -13,10 +13,10 @@ Sendora is a production-grade email scheduler service and web dashboard. It acce
 | B5 | Worker with configurable concurrency | Done | BullMQ Worker configured with `env.WORKER_CONCURRENCY` in `src/worker.ts` |
 | B6 | Per-sender minimum spacing between send starts | Done | Implemented via Redis `sendlock:${senderId}` with TTL in `sendLock.ts` |
 | B7 | Per-sender atomic hourly rate limit (Lua, next window reschedule) | Done | Implemented via Redis Lua in `rateLimiter.ts`, deferred to next UTC hour, verified in `worker.test.ts` |
-| B8 | Slack notification on rate limit hit | In Progress | Phase 7 |
+| B8 | Slack notification on rate limit hit | Done | AES-256-GCM encryption in `crypto.service.ts`, OAuth connect/callback/test, in-flight lock + dedupe in `slack.service.ts` |
 | B9 | Persistence / restart safety & reconciliation | Done | BullMQ delayed jobs + PostgreSQL source of truth + `reconcileQueue()` on boot |
 | B10 | Idempotency (atomic DB claim, deterministic jobId, Message-ID) | Done | Atomic DB claim in `emailProcessor.ts`, deterministic BullMQ `jobId`, deterministic `Message-ID` |
-| B11 | Elasticsearch indexing & search endpoint | In Progress | Phase 7 |
+| B11 | Elasticsearch indexing & search endpoint | Done | `search.service.ts`, `emailRouter.get('/search')`, and `reindex.ts` script; 503 fallback |
 | B12 | Bull Board live dashboard at `/admin/queues` | Done | Mounted at `/admin/queues` with authMiddleware, verified in `auth.test.ts` |
 | B13 | Google OAuth login + httpOnly JWT cookie session | Done | Implemented in `auth.service.ts` & `auth.routes.ts`, verified in `auth.test.ts` |
 | B14 | Retry transient SMTP failures with exponential backoff | Done | Exponential backoff retry in `emailProcessor.ts` up to `EMAIL_MAX_ATTEMPTS` |
