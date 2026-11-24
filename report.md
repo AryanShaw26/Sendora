@@ -7,9 +7,9 @@ Sendora is a production-grade email scheduler service and web dashboard. It acce
 | ID | Requirement | Status (Done / Partial / Not done / Unverified) | Notes / file references |
 |----|-------------|----------------------------------------------------|-------------------------|
 | B1 | REST API to schedule a campaign | In Progress | Phase 4 |
-| B2 | Persist campaigns and individual emails in PostgreSQL | In Progress | Phase 2 |
+| B2 | Persist campaigns and individual emails in PostgreSQL | Done | Prisma schema migrated, initial tables created |
 | B3 | BullMQ delayed job for each email (`jobId = email.id`) | In Progress | Phase 3 |
-| B4 | Multi-sender Ethereal SMTP support | In Progress | Phase 2, Phase 5 |
+| B4 | Multi-sender Ethereal SMTP support | Done | Seeded 3 active Ethereal senders idempotently (`scripts/seed-senders.ts`) |
 | B5 | Worker with configurable concurrency | In Progress | Phase 5 |
 | B6 | Per-sender minimum spacing between send starts | In Progress | Phase 5 |
 | B7 | Per-sender atomic hourly rate limit (Lua, next window reschedule) | In Progress | Phase 5 |
