@@ -1,0 +1,98 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EmailStatus {
+  scheduled
+  processing
+  sent
+  failed
+}
+
+model User {
+  id               String            @id @default(uuid())
+  googleId         String            @unique
+  email            String            @unique
+  name             String
+  avatarUrl        String?
+  createdAt        DateTime          @default(now()) @db.Timestamptz
+  campaigns        Campaign[]
+  emails           Email[]
+  slackIntegration SlackIntegration?
+}
+
+model Sender {
+  id          String   @id @default(uuid())
+  email       String   @unique        // Ethereal username (e.g. xyz@ethereal.email)
+  displayName String
+  smtpHost    String   @default("smtp.ethereal.email")
+  smtpPort    Int      @default(587)
+  smtpUser    String
+  smtpPass    String                  // Ethereal fake creds; not sensitive, but never log
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamptz
+  emails      Email[]
+}
+
+model Campaign {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject      String
+  body         String   @db.Text
+  startTime    DateTime @db.Timestamptz
+  delaySeconds Int
+  hourlyLimit  Int
+  totalEmails  Int
+  createdAt    DateTime @default(now()) @db.Timestamptz
+  emails       Email[]
+
+  @@index([userId, createdAt])
+}
+
+model Email {
+  id                  String      @id @default(uuid())
+  campaignId          String
+  campaign            Campaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  userId              String
+  user                User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  senderId            String
+  sender              Sender      @relation(fields: [senderId], references: [id])
+  recipient           String
+  subject             String
+  seq                 Int                                  // position within campaign (0-based)
+  status              EmailStatus @default(scheduled)
+  scheduledAt         DateTime    @db.Timestamptz          // current intended send time
+  originalScheduledAt DateTime    @db.Timestamptz          // never changes
+  sentAt              DateTime?   @db.Timestamptz
+  processingStartedAt DateTime?   @db.Timestamptz
+  attempts            Int         @default(0)              // SMTP attempts made
+  deferredCount       Int         @default(0)              // times deferred
+  messageId           String?                              // SMTP Message-ID
+  previewUrl          String?                              // Ethereal preview URL
+  errorMessage        String?     @db.Text
+  createdAt           DateTime    @default(now()) @db.Timestamptz
+  updatedAt           DateTime    @updatedAt @db.Timestamptz
+
+  @@unique([campaignId, recipient])
+  @@index([userId, status, scheduledAt])
+  @@index([status, scheduledAt])
+  @@index([senderId, status])
+}
+
+model SlackIntegration {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teamId         String?
+  teamName       String?
+  channelName    String?
+  webhookUrlEnc  String   @db.Text   // AES-256-GCM encrypted incoming-webhook URL
+  createdAt      DateTime @default(now()) @db.Timestamptz
+  updatedAt      DateTime @updatedAt @db.Timestamptz
+}

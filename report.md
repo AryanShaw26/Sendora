@@ -32,7 +32,7 @@ Sendora is a production-grade email scheduler service and web dashboard. It acce
 | F10 | Public pages (Landing, Login, Register, 404) | In Progress | Phase 8 |
 | F11 | App pages (Campaigns, Search, Settings, Detail Drawer) | In Progress | Phase 8 |
 | AC 1 | Docker compose up starts Postgres, Redis, ES healthy | Done | `docker-compose.yml` verified |
-| AC 2 | Backend starts API + worker; `/health` returns ok | Pending | Phase 1 |
+| AC 2 | Backend starts API + worker; `/health` returns ok | Done | Verified: `{"status":"ok","db":"up","redis":"up","elasticsearch":"up"}` |
 | AC 3 | Google login works; header shows user info | Pending | Phase 6, Phase 8 |
 | AC 4 | Scheduling 5 emails sends via Ethereal with previewUrl | Pending | Phase 5 |
 | AC 5 | Restart test: future emails preserved and sent | Pending | Phase 10 |
