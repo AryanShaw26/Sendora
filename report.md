@@ -17,8 +17,8 @@ Sendora is a production-grade email scheduler service and web dashboard. It acce
 | B9 | Persistence / restart safety & reconciliation | Done | BullMQ delayed jobs + PostgreSQL source of truth + `reconcileQueue()` on boot |
 | B10 | Idempotency (atomic DB claim, deterministic jobId, Message-ID) | Done | Atomic DB claim in `emailProcessor.ts`, deterministic BullMQ `jobId`, deterministic `Message-ID` |
 | B11 | Elasticsearch indexing & search endpoint | In Progress | Phase 7 |
-| B12 | Bull Board live dashboard at `/admin/queues` | In Progress | Phase 6 |
-| B13 | Google OAuth login + httpOnly JWT cookie session | In Progress | Phase 6 |
+| B12 | Bull Board live dashboard at `/admin/queues` | Done | Mounted at `/admin/queues` with authMiddleware, verified in `auth.test.ts` |
+| B13 | Google OAuth login + httpOnly JWT cookie session | Done | Implemented in `auth.service.ts` & `auth.routes.ts`, verified in `auth.test.ts` |
 | B14 | Retry transient SMTP failures with exponential backoff | Done | Exponential backoff retry in `emailProcessor.ts` up to `EMAIL_MAX_ATTEMPTS` |
 | F1 | Google login & dashboard shell with user menu | In Progress | Phase 8 |
 | F2 | Dashboard shell (sidebar, navigation, compose button) | In Progress | Phase 8 |

@@ -7,8 +7,15 @@ import { env } from './config/env';
 import { logger } from './config/logger';
 import { prisma } from './db/prisma';
 import { defaultRedis } from './redis/connection';
+import { createBullBoard } from '@bull-board/api';
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
+import { ExpressAdapter } from '@bull-board/express';
 import { pingElasticsearch } from './services/search.service';
 import { scheduleRouter } from './routes/schedule.routes';
+import { authRouter } from './routes/auth.routes';
+import { userRouter } from './routes/user.routes';
+import { authMiddleware } from './middleware/auth';
+import { emailQueue } from './queue/queue';
 
 export function createApp(): express.Application {
   const app = express();
@@ -64,8 +71,19 @@ export function createApp(): express.Application {
     });
   });
 
-  // API Routes
+  // API & Auth Routes
+  app.use('/auth', authRouter);
+  app.use('/api', userRouter);
   app.use('/api/schedule', scheduleRouter);
+
+  // Bull Board Live Queue Dashboard
+  const serverAdapter = new ExpressAdapter();
+  serverAdapter.setBasePath(env.BULL_BOARD_PATH);
+  createBullBoard({
+    queues: [new BullMQAdapter(emailQueue)],
+    serverAdapter,
+  });
+  app.use(env.BULL_BOARD_PATH, authMiddleware, serverAdapter.getRouter());
 
   // Central error handler
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
