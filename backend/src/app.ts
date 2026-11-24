@@ -8,6 +8,7 @@ import { logger } from './config/logger';
 import { prisma } from './db/prisma';
 import { defaultRedis } from './redis/connection';
 import { pingElasticsearch } from './services/search.service';
+import { scheduleRouter } from './routes/schedule.routes';
 
 export function createApp(): express.Application {
   const app = express();
@@ -62,6 +63,9 @@ export function createApp(): express.Application {
       elasticsearch: esOk ? 'up' : 'down',
     });
   });
+
+  // API Routes
+  app.use('/api/schedule', scheduleRouter);
 
   // Central error handler
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
