@@ -8,6 +8,13 @@ import {
   getOrCreateDevUser,
 } from "../services/auth.service";
 
+const sessionCookieOptions = {
+  httpOnly: true,
+  sameSite: "none" as const,
+  secure: env.COOKIE_SECURE,
+  path: "/",
+};
+
 export function createAuthRouter(
   nodeEnv: typeof env.NODE_ENV = env.NODE_ENV,
 ): Router {
@@ -69,9 +76,7 @@ export function createAuthRouter(
         const { token } = await handleGoogleCallback(code as string);
 
         res.cookie("token", token, {
-          httpOnly: true,
-          sameSite: "none",
-          secure: env.COOKIE_SECURE,
+          ...sessionCookieOptions,
           maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         });
 
@@ -92,9 +97,7 @@ export function createAuthRouter(
     try {
       const { token } = await getOrCreateDevUser();
       res.cookie("token", token, {
-        httpOnly: true,
-        sameSite: "none",
-        secure: env.COOKIE_SECURE,
+        ...sessionCookieOptions,
         maxAge: 7 * 24 * 60 * 60 * 1000,
       });
       res.redirect(`${env.FRONTEND_URL}/dashboard`);
@@ -105,11 +108,7 @@ export function createAuthRouter(
   });
 
   router.post("/logout", (_req: Request, res: Response) => {
-    res.clearCookie("token", {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: env.COOKIE_SECURE,
-    });
+    res.clearCookie("token", sessionCookieOptions);
     res.json({ success: true, message: "Logged out successfully" });
   });
 

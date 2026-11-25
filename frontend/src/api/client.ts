@@ -23,7 +23,10 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError<{ error?: ApiError }>) => {
     // If unauthorized on any endpoint other than /api/me, redirect to /login
-    if (error.response?.status === 401 && !error.config?.url?.includes('/api/me')) {
+    const requestUrl = error.config?.url || '';
+    const isSessionCheck = requestUrl.includes('/api/me');
+    const isLogoutRequest = requestUrl.includes('/auth/logout');
+    if (error.response?.status === 401 && !isSessionCheck && !isLogoutRequest) {
       if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
         window.location.href = '/login';
       }

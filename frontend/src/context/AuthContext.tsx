@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { createContext, useContext } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { User } from '../types';
 import { getMe, logout as apiLogout } from '../api/client';
 
@@ -15,12 +17,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const queryClient = useQueryClient();
-  const [user, setUser] = useState<User | null>(null);
+  const navigate = useNavigate();
 
   const {
     data,
     isLoading,
-    isError,
     refetch: refetchUser,
   } = useQuery({
     queryKey: ['me'],
@@ -28,23 +29,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     retry: false,
     staleTime: 5 * 60 * 1000,
   });
+  const user = data ?? null;
 
-  useEffect(() => {
-    if (data) {
-      setUser(data);
-    } else if (isError) {
-      setUser(null);
+  const logout = async (): Promise<void> => {
+    try {
+      await apiLogout();
+    } catch {
+      toast.error('Could not sign out. Please try again.');
+      return;
     }
-  }, [data, isError]);
 
-  const logoutMutation = useMutation({
-    mutationFn: apiLogout,
-    onSuccess: () => {
-      setUser(null);
-      queryClient.clear();
-      window.location.href = '/login';
-    },
-  });
+    await queryClient.cancelQueries();
+    queryClient.clear();
+    navigate('/', { replace: true });
+  };
 
   return (
     <AuthContext.Provider
@@ -52,9 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         isLoading,
         isAuthenticated: !!user,
-        logout: async () => {
-          await logoutMutation.mutateAsync();
-        },
+        logout,
         refetchUser: () => {
           refetchUser();
         },
