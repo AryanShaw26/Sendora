@@ -78,6 +78,9 @@ const envSchema = z.object({
     .default(true),
 
   BULL_BOARD_PATH: z.string().default("/admin/queues"),
+  // Comma-separated email allowlist for temporary operational admin routes.
+  // Empty by default so admin access is denied unless explicitly configured.
+  ADMIN_EMAILS: z.string().default(""),
 });
 
 const configuredEnvSchema = envSchema.superRefine((config, context) => {

@@ -20,6 +20,7 @@ import { senderRouter } from "./routes/sender.routes";
 import { slackRouter } from "./routes/slack.routes";
 import { authMiddleware } from "./middleware/auth";
 import { emailQueue } from "./queue/queue";
+import { adminRouter } from "./routes/admin.routes";
 
 export function createApp(): express.Application {
   const app = express();
@@ -89,6 +90,7 @@ export function createApp(): express.Application {
   app.use("/api/campaigns", campaignRouter);
   app.use("/api/senders", senderRouter);
   app.use("/api/slack", slackRouter);
+  app.use("/api/admin", adminRouter);
 
   // Bull Board Live Queue Dashboard
   const serverAdapter = new ExpressAdapter();
