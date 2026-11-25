@@ -1,15 +1,36 @@
-import { describe, it, expect, afterAll } from 'vitest';
-import { prisma } from '../src/db/prisma';
-import { defaultRedis } from '../src/redis/connection';
-import { tryConsumeSlot, releaseSlot, getRateCount } from '../src/workers/rateLimiter';
-import { acquireSendStartSlot } from '../src/workers/sendLock';
-import { utcHourKey, startOfNextUtcHour } from '../src/utils/time';
-import { processEmail } from '../src/workers/emailProcessor';
-import { emailQueue } from '../src/queue/queue';
-import { Job, DelayedError } from 'bullmq';
+import { describe, it, expect, afterAll, vi } from "vitest";
+import { prisma } from "../src/db/prisma";
+import { defaultRedis } from "../src/redis/connection";
+import {
+  tryConsumeSlot,
+  releaseSlot,
+  getRateCount,
+} from "../src/workers/rateLimiter";
+import { acquireSendStartSlot } from "../src/workers/sendLock";
+import { utcHourKey, startOfNextUtcHour } from "../src/utils/time";
+import { processEmail } from "../src/workers/emailProcessor";
+import { emailQueue } from "../src/queue/queue";
+import { Job, DelayedError } from "bullmq";
+import * as mailerService from "../src/services/mailer.service";
+import { SMTP_OUTCOME_UNKNOWN_PREFIX } from "../src/workers/emailProcessor";
 
-describe('Worker Engine & Rate Limiter Tests', () => {
-  const testSenderId = 'test-sender-' + Date.now();
+let failNextSentStatusUpdate = false;
+
+prisma.$use(async (params, next) => {
+  if (
+    failNextSentStatusUpdate &&
+    params.model === "Email" &&
+    params.action === "update" &&
+    params.args.data?.status === "sent"
+  ) {
+    failNextSentStatusUpdate = false;
+    throw new Error("simulated PostgreSQL write failure");
+  }
+  return next(params);
+});
+
+describe("Worker Engine & Rate Limiter Tests", () => {
+  const testSenderId = "test-sender-" + Date.now();
   const window = utcHourKey();
 
   afterAll(async () => {
@@ -20,7 +41,7 @@ describe('Worker Engine & Rate Limiter Tests', () => {
     await prisma.$disconnect();
   });
 
-  it('enforces atomic hourly rate limits via Redis Lua script and releases slots', async () => {
+  it("enforces atomic hourly rate limits via Redis Lua script and releases slots", async () => {
     const limit = 2;
 
     const slot1 = await tryConsumeSlot(testSenderId, limit);
@@ -46,7 +67,7 @@ describe('Worker Engine & Rate Limiter Tests', () => {
     expect(slot4.count).toBe(2);
   });
 
-  it('enforces per-sender minimum delay send-lock', async () => {
+  it("enforces per-sender minimum delay send-lock", async () => {
     const slot1 = await acquireSendStartSlot(testSenderId);
     expect(slot1.acquired).toBe(true);
 
@@ -58,9 +79,7 @@ describe('Worker Engine & Rate Limiter Tests', () => {
     }
   });
 
-  it(
-    'processes an email, marks it sent with previewUrl, and updates attempts',
-    async () => {
+  it("processes an email, marks it sent with previewUrl, and updates attempts", async () => {
     const sender = await prisma.sender.findFirst({ where: { isActive: true } });
     expect(sender).toBeDefined();
 
@@ -70,8 +89,8 @@ describe('Worker Engine & Rate Limiter Tests', () => {
     const campaign = await prisma.campaign.create({
       data: {
         userId: user!.id,
-        subject: 'Worker Test Subject',
-        body: '<b>Hello from Worker Test</b>',
+        subject: "Worker Test Subject",
+        body: "<b>Hello from Worker Test</b>",
         startTime: new Date(),
         delaySeconds: 1,
         hourlyLimit: 100,
@@ -84,10 +103,10 @@ describe('Worker Engine & Rate Limiter Tests', () => {
         campaignId: campaign.id,
         userId: user!.id,
         senderId: sender!.id,
-        recipient: 'worker-test-recipient@ethereal.email',
-        subject: 'Worker Test Subject',
+        recipient: "worker-test-recipient@ethereal.email",
+        subject: "Worker Test Subject",
         seq: 0,
-        status: 'scheduled',
+        status: "scheduled",
         scheduledAt: new Date(),
         originalScheduledAt: new Date(),
       },
@@ -102,26 +121,85 @@ describe('Worker Engine & Rate Limiter Tests', () => {
     await processEmail(mockJob);
 
     const updated = await prisma.email.findUnique({ where: { id: email.id } });
-    expect(updated?.status).toBe('sent');
+    expect(updated?.status).toBe("sent");
     expect(updated?.sentAt).toBeDefined();
-    expect(updated?.previewUrl).toContain('ethereal.email');
+    expect(updated?.previewUrl).toContain("ethereal.email");
     expect(updated?.attempts).toBe(1);
-    expect(updated?.messageId).toContain('@sendora.local');
+    expect(updated?.messageId).toContain("@sendora.local");
   }, 15000);
 
-  it('defers email to next UTC hour window when campaign hourly limit is exceeded', async () => {
+  it("does not resend after SMTP acceptance when the sent-status database write fails", async () => {
+    const sender = await prisma.sender.findFirstOrThrow({
+      where: { isActive: true },
+    });
+    const user = await prisma.user.findFirstOrThrow();
+    const campaign = await prisma.campaign.create({
+      data: {
+        userId: user.id,
+        subject: "SMTP ambiguity test",
+        body: "Test",
+        startTime: new Date(),
+        delaySeconds: 0,
+        hourlyLimit: 100,
+        totalEmails: 1,
+      },
+    });
+    const email = await prisma.email.create({
+      data: {
+        campaignId: campaign.id,
+        userId: user.id,
+        senderId: sender.id,
+        recipient: `smtp-ambiguity-${Date.now()}@sendora.test`,
+        subject: campaign.subject,
+        seq: 0,
+        status: "scheduled",
+        scheduledAt: new Date(),
+        originalScheduledAt: new Date(),
+      },
+    });
+    await defaultRedis.del(`sendlock:${sender.id}`);
+    await defaultRedis.del(`rate:${sender.id}:${window}`);
+    const smtpSend = vi.spyOn(mailerService, "sendEmail").mockResolvedValue({
+      messageId: `<${email.id}@sendora.local>`,
+      previewUrl: null,
+    });
+    failNextSentStatusUpdate = true;
+    const mockJob = {
+      id: email.id,
+      data: { emailId: email.id },
+    } as unknown as Job<{ emailId: string }>;
+
+    try {
+      await processEmail(mockJob);
+      await processEmail(mockJob);
+
+      const persisted = await prisma.email.findUniqueOrThrow({
+        where: { id: email.id },
+      });
+      expect(smtpSend).toHaveBeenCalledTimes(1);
+      expect(persisted.status).toBe("processing");
+      expect(persisted.errorMessage).toContain(SMTP_OUTCOME_UNKNOWN_PREFIX);
+    } finally {
+      smtpSend.mockRestore();
+      failNextSentStatusUpdate = false;
+      await defaultRedis.del(`sendlock:${sender.id}`);
+      await prisma.campaign.delete({ where: { id: campaign.id } });
+    }
+  });
+
+  it("defers email to next UTC hour window when campaign hourly limit is exceeded", async () => {
     const sender = await prisma.sender.findFirst({ where: { isActive: true } });
     const user = await prisma.user.findFirst();
 
     // Set hourly rate counter in Redis to hit limit
     const key = `rate:${sender!.id}:${utcHourKey()}`;
-    await defaultRedis.set(key, '100'); // set high count
+    await defaultRedis.set(key, "100"); // set high count
 
     const campaign = await prisma.campaign.create({
       data: {
         userId: user!.id,
-        subject: 'Rate Limit Deferral Test',
-        body: 'Testing deferral',
+        subject: "Rate Limit Deferral Test",
+        body: "Testing deferral",
         startTime: new Date(),
         delaySeconds: 1,
         hourlyLimit: 1, // limit is 1, but Redis count is 100
@@ -134,10 +212,10 @@ describe('Worker Engine & Rate Limiter Tests', () => {
         campaignId: campaign.id,
         userId: user!.id,
         senderId: sender!.id,
-        recipient: 'deferred-test@ethereal.email',
-        subject: 'Rate Limit Deferral Test',
+        recipient: "deferred-test@ethereal.email",
+        subject: "Rate Limit Deferral Test",
         seq: 0,
-        status: 'scheduled',
+        status: "scheduled",
         scheduledAt: new Date(),
         originalScheduledAt: new Date(),
       },
@@ -157,7 +235,7 @@ describe('Worker Engine & Rate Limiter Tests', () => {
 
     // Verify DB update
     const updated = await prisma.email.findUnique({ where: { id: email.id } });
-    expect(updated?.status).toBe('scheduled'); // Not failed!
+    expect(updated?.status).toBe("scheduled"); // Not failed!
     expect(updated?.deferredCount).toBe(1);
     expect(updated?.scheduledAt.getTime()).toBe(startOfNextUtcHour().getTime());
     expect(delayedRunAt).toBe(startOfNextUtcHour().getTime());

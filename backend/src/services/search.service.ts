@@ -1,46 +1,62 @@
-import { Client } from '@elastic/elasticsearch';
-import { env } from '../config/env';
-import { logger } from '../config/logger';
+import { Client } from "@elastic/elasticsearch";
+import { env } from "../config/env";
+import { logger } from "../config/logger";
 
 export const esClient = new Client({
   node: env.ELASTICSEARCH_NODE,
+  ...(env.ELASTICSEARCH_USERNAME
+    ? {
+        auth: {
+          username: env.ELASTICSEARCH_USERNAME,
+          password: env.ELASTICSEARCH_PASSWORD,
+        },
+      }
+    : {}),
 });
 
 export async function pingElasticsearch(): Promise<boolean> {
   try {
     return await esClient.ping();
   } catch (err) {
-    logger.warn({ err }, 'Elasticsearch ping failed');
+    logger.warn({ err }, "Elasticsearch ping failed");
     return false;
   }
 }
 
 export async function ensureIndex(): Promise<void> {
   try {
-    const exists = await esClient.indices.exists({ index: env.ELASTICSEARCH_INDEX });
+    const exists = await esClient.indices.exists({
+      index: env.ELASTICSEARCH_INDEX,
+    });
     if (!exists) {
       await esClient.indices.create({
         index: env.ELASTICSEARCH_INDEX,
         mappings: {
           properties: {
-            id: { type: 'keyword' },
-            userId: { type: 'keyword' },
-            campaignId: { type: 'keyword' },
-            recipient: { type: 'text', fields: { raw: { type: 'keyword' } } },
-            subject: { type: 'text' },
-            body: { type: 'text' },
-            status: { type: 'keyword' },
-            senderEmail: { type: 'keyword' },
-            scheduledAt: { type: 'date' },
-            sentAt: { type: 'date' },
-            errorMessage: { type: 'text' },
+            id: { type: "keyword" },
+            userId: { type: "keyword" },
+            campaignId: { type: "keyword" },
+            recipient: { type: "text", fields: { raw: { type: "keyword" } } },
+            subject: { type: "text" },
+            body: { type: "text" },
+            status: { type: "keyword" },
+            senderEmail: { type: "keyword" },
+            scheduledAt: { type: "date" },
+            sentAt: { type: "date" },
+            errorMessage: { type: "text" },
           },
         },
       });
-      logger.info({ index: env.ELASTICSEARCH_INDEX }, 'Created Elasticsearch index');
+      logger.info(
+        { index: env.ELASTICSEARCH_INDEX },
+        "Created Elasticsearch index",
+      );
     }
   } catch (err) {
-    logger.warn({ err }, 'Failed to ensure Elasticsearch index; continuing without blocking');
+    logger.warn(
+      { err },
+      "Failed to ensure Elasticsearch index; continuing without blocking",
+    );
   }
 }
 
@@ -57,7 +73,7 @@ export async function indexEmails(
     scheduledAt: Date;
     sentAt?: Date | null;
     errorMessage?: string | null;
-  }>
+  }>,
 ): Promise<void> {
   if (emails.length === 0) return;
   try {
@@ -79,10 +95,10 @@ export async function indexEmails(
     ]);
     const response = await esClient.bulk({ refresh: true, operations });
     if (response.errors) {
-      logger.warn('Some documents failed to index in Elasticsearch');
+      logger.warn("Some documents failed to index in Elasticsearch");
     }
   } catch (err) {
-    logger.warn({ err }, 'Failed to bulk index emails into Elasticsearch');
+    logger.warn({ err }, "Failed to bulk index emails into Elasticsearch");
   }
 }
 
@@ -93,14 +109,17 @@ export async function updateEmailInIndex(
     sentAt: Date | null;
     scheduledAt: Date;
     errorMessage: string | null;
-  }>
+  }>,
 ): Promise<void> {
   try {
     const doc: Record<string, unknown> = {};
     if (partial.status !== undefined) doc.status = partial.status;
-    if (partial.sentAt !== undefined) doc.sentAt = partial.sentAt ? partial.sentAt.toISOString() : null;
-    if (partial.scheduledAt !== undefined) doc.scheduledAt = partial.scheduledAt.toISOString();
-    if (partial.errorMessage !== undefined) doc.errorMessage = partial.errorMessage;
+    if (partial.sentAt !== undefined)
+      doc.sentAt = partial.sentAt ? partial.sentAt.toISOString() : null;
+    if (partial.scheduledAt !== undefined)
+      doc.scheduledAt = partial.scheduledAt.toISOString();
+    if (partial.errorMessage !== undefined)
+      doc.errorMessage = partial.errorMessage;
 
     await esClient.update({
       index: env.ELASTICSEARCH_INDEX,
@@ -110,7 +129,10 @@ export async function updateEmailInIndex(
       refresh: true,
     });
   } catch (err) {
-    logger.warn({ err, emailId: id }, 'Failed to update email in Elasticsearch index');
+    logger.warn(
+      { err, emailId: id },
+      "Failed to update email in Elasticsearch index",
+    );
   }
 }
 
@@ -129,13 +151,15 @@ export async function searchEmails(params: {
     {
       multi_match: {
         query: params.q,
-        fields: ['recipient^2', 'subject^2', 'body'],
-        fuzziness: 'AUTO',
+        fields: ["recipient^2", "subject^2", "body"],
+        fuzziness: "AUTO",
       },
     },
   ];
 
-  const filter: Record<string, unknown>[] = [{ term: { userId: params.userId } }];
+  const filter: Record<string, unknown>[] = [
+    { term: { userId: params.userId } },
+  ];
   if (params.status) {
     filter.push({ term: { status: params.status } });
   }
@@ -153,11 +177,13 @@ export async function searchEmails(params: {
   });
 
   const total =
-    typeof response.hits.total === 'number'
+    typeof response.hits.total === "number"
       ? response.hits.total
       : (response.hits.total?.value ?? 0);
 
-  const items = response.hits.hits.map((hit) => hit._source as Record<string, unknown>);
+  const items = response.hits.hits.map(
+    (hit) => hit._source as Record<string, unknown>,
+  );
 
   return { items, total };
 }

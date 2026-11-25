@@ -1,0 +1,51 @@
+services:
+  api:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    env_file:
+      - ../backend/.env.production
+    command: ["node", "dist/src/server.js"]
+    ports:
+      - "127.0.0.1:4000:4000"
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  worker:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    env_file:
+      - ../backend/.env.production
+    command: ["node", "dist/src/worker.js"]
+    restart: unless-stopped
+    stop_grace_period: 90s
+
+  migrate:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+      target: build
+    env_file:
+      - ../backend/.env.production
+    command: ["npx", "prisma", "migrate", "deploy"]
+    restart: "no"
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:?Set VITE_API_BASE_URL to the public HTTPS API URL}
+    ports:
+      - "127.0.0.1:8080:80"
+    restart: unless-stopped
