@@ -50,9 +50,11 @@ model Campaign {
   hourlyLimit  Int
   totalEmails  Int
   createdAt    DateTime @default(now()) @db.Timestamptz
+  archivedAt   DateTime? @db.Timestamptz
   emails       Email[]
 
   @@index([userId, createdAt])
+  @@index([userId, archivedAt, createdAt])
 }
 
 model Email {

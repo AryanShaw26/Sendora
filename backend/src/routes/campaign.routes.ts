@@ -9,7 +9,7 @@ campaignRouter.get('/', authMiddleware, async (req: Request, res: Response, next
     const userId = req.user!.id;
 
     const campaigns = await prisma.campaign.findMany({
-      where: { userId },
+      where: { userId, archivedAt: null },
       orderBy: { createdAt: 'desc' },
       include: {
         emails: {
