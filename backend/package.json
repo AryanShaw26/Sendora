@@ -10,6 +10,7 @@
     "build": "tsc -p .",
     "start:api": "node dist/src/server.js",
     "start:worker": "node dist/src/worker.js",
+    "start:all": "node scripts/start-all.js",
     "prisma:migrate": "prisma migrate dev",
     "prisma:generate": "prisma generate",
     "seed:senders": "tsx scripts/seed-senders.ts",

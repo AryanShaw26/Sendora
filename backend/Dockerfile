@@ -19,6 +19,7 @@ COPY package*.json ./
 COPY prisma ./prisma
 RUN npm ci --omit=dev
 COPY --from=build /app/dist ./dist
+COPY scripts/start-all.js ./scripts/start-all.js
 
 EXPOSE 4000
-CMD ["node", "dist/src/server.js"]
+CMD ["node", "scripts/start-all.js"]
