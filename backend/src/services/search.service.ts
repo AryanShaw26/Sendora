@@ -1,6 +1,7 @@
 import { Client } from "@elastic/elasticsearch";
 import { env } from "../config/env";
 import { logger } from "../config/logger";
+import { prisma } from "../db/prisma";
 
 export const esClient = new Client({
   node: env.ELASTICSEARCH_NODE,
@@ -171,6 +172,17 @@ export async function searchEmails(params: {
   const filter: Record<string, unknown>[] = [
     { term: { userId: params.userId } },
   ];
+
+  const activeCampaigns = await prisma.campaign.findMany({
+    where: { userId: params.userId, archivedAt: null },
+    select: { id: true },
+  });
+  const activeCampaignIds = activeCampaigns.map((campaign) => campaign.id);
+  if (activeCampaignIds.length === 0) {
+    return { items: [], total: 0 };
+  }
+  filter.push({ terms: { campaignId: activeCampaignIds } });
+
   if (params.status) {
     filter.push({ term: { status: params.status } });
   }

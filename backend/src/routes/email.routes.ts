@@ -35,7 +35,10 @@ emailRouter.get(
       }
 
       const userId = req.user!.id;
-      const whereCondition: Prisma.EmailWhereInput = { userId };
+      const whereCondition: Prisma.EmailWhereInput = {
+        userId,
+        campaign: { is: { archivedAt: null } },
+      };
       if (campaignId) {
         whereCondition.campaignId = campaignId;
       }
