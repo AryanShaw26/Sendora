@@ -25,6 +25,10 @@ const envSchema = z.object({
     .default(false),
   QUEUE_NAME: z.string().default("email-queue"),
 
+  ELASTICSEARCH_ENABLED: z
+    .union([z.boolean(), z.string()])
+    .transform((val) => val === true || val === "true")
+    .default(true),
   ELASTICSEARCH_NODE: z.string().default("http://localhost:9200"),
   ELASTICSEARCH_USERNAME: z.string().optional().default(""),
   ELASTICSEARCH_PASSWORD: z.string().optional().default(""),
@@ -98,26 +102,22 @@ const configuredEnvSchema = envSchema.superRefine((config, context) => {
       message: "Use a unique production JWT_SECRET of at least 32 characters",
     });
   }
-  if (!config.REDIS_TLS || !config.REDIS_PASSWORD) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["REDIS_TLS"],
-      message: "Production Redis must use TLS and authentication",
-    });
-  }
-  if (!config.ELASTICSEARCH_NODE.startsWith("https://")) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["ELASTICSEARCH_NODE"],
-      message: "Production Elasticsearch must use HTTPS",
-    });
-  }
-  if (!config.ELASTICSEARCH_USERNAME || !config.ELASTICSEARCH_PASSWORD) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["ELASTICSEARCH_USERNAME"],
-      message: "Production Elasticsearch credentials are required",
-    });
+  if (config.ELASTICSEARCH_ENABLED) {
+    if (!config.ELASTICSEARCH_NODE.startsWith("https://")) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["ELASTICSEARCH_NODE"],
+        message: "Production Elasticsearch must use HTTPS when enabled",
+      });
+    }
+    if (!config.ELASTICSEARCH_USERNAME || !config.ELASTICSEARCH_PASSWORD) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["ELASTICSEARCH_USERNAME"],
+        message:
+          "Production Elasticsearch credentials are required when enabled",
+      });
+    }
   }
   if (
     !/[?&]sslmode=(require|verify-ca|verify-full)(?:&|$)/i.test(

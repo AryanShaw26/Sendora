@@ -1,55 +1,62 @@
-import { createApp } from './app';
-import { env } from './config/env';
-import { logger } from './config/logger';
-import { prisma } from './db/prisma';
-import { defaultRedis } from './redis/connection';
-import { ensureIndex } from './services/search.service';
-import { reconcileQueue } from './queue/reconcile';
+import { createApp } from "./app";
+import { env } from "./config/env";
+import { logger } from "./config/logger";
+import { prisma } from "./db/prisma";
+import { defaultRedis } from "./redis/connection";
+import { ensureIndex } from "./services/search.service";
+import { reconcileQueue } from "./queue/reconcile";
 
 async function start() {
   const app = createApp();
 
-  // Ensure Elasticsearch index exists on boot
-  await ensureIndex();
+  // Ensure Elasticsearch index exists on boot only when it is enabled
+  if (env.ELASTICSEARCH_ENABLED) {
+    await ensureIndex();
+  }
 
   if (env.RECOVERY_ON_BOOT) {
     try {
       await reconcileQueue();
     } catch (err) {
-      logger.error({ err }, 'Boot-time queue reconciliation encountered an error');
+      logger.error(
+        { err },
+        "Boot-time queue reconciliation encountered an error",
+      );
     }
   }
 
   const server = app.listen(env.PORT, () => {
-    logger.info(`🚀 API server running on ${env.BACKEND_URL} (Port ${env.PORT})`);
+    logger.info(
+      `🚀 API server running on ${env.BACKEND_URL} (Port ${env.PORT})`,
+    );
   });
 
   const shutdown = async (signal: string) => {
     logger.info(`Received ${signal}, starting graceful shutdown...`);
     server.close(async () => {
-      logger.info('HTTP server closed');
+      logger.info("HTTP server closed");
       try {
         await prisma.$disconnect();
-        logger.info('Prisma disconnected');
+        logger.info("Prisma disconnected");
         await defaultRedis.quit();
-        logger.info('Redis connection closed');
+        logger.info("Redis connection closed");
       } catch (err) {
-        logger.error({ err }, 'Error during shutdown');
+        logger.error({ err }, "Error during shutdown");
       }
       process.exit(0);
     });
 
     setTimeout(() => {
-      logger.error('Forcefully exiting after timeout');
+      logger.error("Forcefully exiting after timeout");
       process.exit(1);
     }, 10000);
   };
 
-  process.on('SIGINT', () => shutdown('SIGINT'));
-  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on("SIGINT", () => shutdown("SIGINT"));
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
 }
 
 start().catch((err) => {
-  logger.error({ err }, 'Failed to start API server');
+  logger.error({ err }, "Failed to start API server");
   process.exit(1);
 });

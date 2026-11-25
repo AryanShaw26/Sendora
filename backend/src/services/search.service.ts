@@ -15,6 +15,9 @@ export const esClient = new Client({
 });
 
 export async function pingElasticsearch(): Promise<boolean> {
+  if (!env.ELASTICSEARCH_ENABLED) {
+    return false;
+  }
   try {
     return await esClient.ping();
   } catch (err) {
@@ -24,6 +27,9 @@ export async function pingElasticsearch(): Promise<boolean> {
 }
 
 export async function ensureIndex(): Promise<void> {
+  if (!env.ELASTICSEARCH_ENABLED) {
+    return;
+  }
   try {
     const exists = await esClient.indices.exists({
       index: env.ELASTICSEARCH_INDEX,
@@ -75,6 +81,7 @@ export async function indexEmails(
     errorMessage?: string | null;
   }>,
 ): Promise<void> {
+  if (!env.ELASTICSEARCH_ENABLED) return;
   if (emails.length === 0) return;
   try {
     const operations = emails.flatMap((doc) => [
@@ -111,6 +118,7 @@ export async function updateEmailInIndex(
     errorMessage: string | null;
   }>,
 ): Promise<void> {
+  if (!env.ELASTICSEARCH_ENABLED) return;
   try {
     const doc: Record<string, unknown> = {};
     if (partial.status !== undefined) doc.status = partial.status;
@@ -143,6 +151,9 @@ export async function searchEmails(params: {
   page?: number;
   limit?: number;
 }): Promise<{ items: Array<Record<string, unknown>>; total: number }> {
+  if (!env.ELASTICSEARCH_ENABLED) {
+    throw new Error("Elasticsearch search is disabled");
+  }
   const page = Math.max(1, params.page || 1);
   const limit = Math.min(100, Math.max(1, params.limit || 20));
   const from = (page - 1) * limit;
