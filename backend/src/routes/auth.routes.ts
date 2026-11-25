@@ -70,7 +70,7 @@ export function createAuthRouter(
 
         res.cookie("token", token, {
           httpOnly: true,
-          sameSite: "lax",
+          sameSite: "none",
           secure: env.COOKIE_SECURE,
           maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         });
@@ -93,7 +93,7 @@ export function createAuthRouter(
       const { token } = await getOrCreateDevUser();
       res.cookie("token", token, {
         httpOnly: true,
-        sameSite: "lax",
+        sameSite: "none",
         secure: env.COOKIE_SECURE,
         maxAge: 7 * 24 * 60 * 60 * 1000,
       });
