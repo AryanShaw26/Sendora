@@ -43,25 +43,50 @@ export async function handleGoogleCallback(
     throw new Error('Google ID token missing essential claims (email or sub)');
   }
 
+  // Keep diagnostics useful without logging the Google profile or identifiers.
+  logger.info(
+    {
+      emailPresent: Boolean(payload.email),
+      subjectPresent: Boolean(payload.sub),
+      emailVerified: payload.email_verified === true,
+    },
+    'Google OAuth profile received',
+  );
+
   const googleId = payload.sub;
   const email = payload.email.toLowerCase();
   const name = payload.name || payload.email.split('@')[0];
   const avatarUrl = payload.picture || null;
 
-  const user = await prisma.user.upsert({
-    where: { googleId },
-    update: { email, name, avatarUrl },
-    create: {
-      googleId,
-      email,
-      name,
-      avatarUrl,
-    },
-    select: { id: true, email: true, name: true, avatarUrl: true },
-  });
+  let user;
+  try {
+    user = await prisma.user.upsert({
+      where: { googleId },
+      update: { email, name, avatarUrl },
+      create: {
+        googleId,
+        email,
+        name,
+        avatarUrl,
+      },
+      select: { id: true, email: true, name: true, avatarUrl: true },
+    });
+    logger.info({ outcome: 'success' }, 'Google OAuth user upsert completed');
+  } catch (err) {
+    const safeError = err as { name?: unknown; code?: unknown };
+    logger.error(
+      {
+        outcome: 'failure',
+        errorName: typeof safeError?.name === 'string' ? safeError.name : 'UnknownError',
+        errorCode: typeof safeError?.code === 'string' ? safeError.code : undefined,
+      },
+      'Google OAuth user upsert failed',
+    );
+    throw err;
+  }
 
   const token = signUserToken(user.id);
-  logger.info({ userId: user.id, email: user.email }, 'User authenticated via Google OAuth');
+  logger.info({ outcome: 'success' }, 'Google OAuth JWT generated');
   return { token, user };
 }
 

@@ -80,6 +80,18 @@ export function createAuthRouter(
           maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         });
 
+        logger.info(
+          {
+            cookieName: "token",
+            httpOnly: sessionCookieOptions.httpOnly,
+            secure: sessionCookieOptions.secure,
+            sameSite: sessionCookieOptions.sameSite,
+            path: sessionCookieOptions.path,
+            domainConfigured: false,
+          },
+          "Google OAuth session cookie configured",
+        );
+
         res.redirect(`${env.FRONTEND_URL}/dashboard`);
       } catch (err) {
         logger.error({ err }, "Exception in Google OAuth token exchange");
